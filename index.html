@@ -237,25 +237,31 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from sklearn.metrics import confusion_matrix
-        
-# Load and preprocess the dataset
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-x_train = x_train.astype('float32') / 255.0
-x_test = x_test.astype('float32') / 255.0
-x_train = x_train.reshape(-1, 28, 28, 1)
-x_test = x_test.reshape(-1, 28, 28, 1)
-        
-# Visualize some samples
-def plot_samples(images, labels, num_samples=5):
-    plt.figure(figsize=(10, 2))
-    for i in range(num_samples):
-        plt.subplot(1, num_samples, i+1)
-        plt.imshow(images[i].reshape(28, 28), cmap='gray')
-        plt.title(f'Label: {labels[i]}')
-        plt.axis('off')
-    plt.show()
-        
-plot_samples(x_train, y_train)
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+import os
+for i in os.walk("/content/drive/MyDrive/{drive folder}") :
+  myimgs = i[2]
+  print(i)
+
+myimgs
+
+X = []
+for i in myimgs :
+  img = load_img('/content/drive/MyDrive/Camera Roll/'+i)
+  img = img_to_array(img)
+  X.append(img)
+X = np.array(X)
+Y = np.array([1,2,0])
+
+x_train, y_train, x_test, y_test = train_test_split(X,Y,test_size=0.2)
+
+import matplotlib.pyplot as plt
+plt.imshow(img[:,:,0])
+
+
         
 # Define the LeNet model with dropout
 def create_lenet_with_dropout_model():
@@ -480,6 +486,256 @@ for i in range(min(6, num_feature_maps)):  # Display first 6 feature maps
     plt.axis('off')
 plt.suptitle('Feature Maps from VGG16')
 plt.show()
+        
+    </xmp>
+    <h2>mitul ex1 cnn binary classification</h2>
+    <xmp>
+import os
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers, models
+        
+# Define paths for the two folders
+horse_dir = 'path/to/your/horses/folder'
+human_dir = 'path/to/your/humans/folder'
+        
+# Parameters
+img_height, img_width = 128, 128  # Resize images to this size
+batch_size = 32
+epochs = 10
+        
+# Load images and create arrays
+def load_images_from_folder(folder, label, img_height, img_width):
+    images = []
+    labels = []
+    for filename in os.listdir(folder):
+        img_path = os.path.join(folder, filename)
+        img = tf.keras.preprocessing.image.load_img(img_path, target_size=(img_height, img_width))
+        img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0  # Normalize to [0, 1]
+        images.append(img_array)
+        labels.append(label)
+    return np.array(images), np.array(labels)
+        
+# Load horse images (label 0) and human images (label 1)
+horse_images, horse_labels = load_images_from_folder(horse_dir, 0, img_height, img_width)
+human_images, human_labels = load_images_from_folder(human_dir, 1, img_height, img_width)
+        
+# Combine and shuffle data
+X = np.concatenate([horse_images, human_images], axis=0)
+y = np.concatenate([horse_labels, human_labels], axis=0)
+        
+# Split into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+# Data augmentation
+train_datagen = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    shear_range=0.1,
+    zoom_range=0.1,
+    horizontal_flip=True
+)
+val_datagen = ImageDataGenerator()
+        
+# Create data generators
+train_generator = train_datagen.flow(X_train, y_train, batch_size=batch_size)
+val_generator = val_datagen.flow(X_val, y_val, batch_size=batch_size)
+        
+# Build the CNN model
+model = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(img_height, img_width, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dense(1, activation='sigmoid')
+])
+        
+# Compile the model
+model.compile(optimizer='adam',
+                loss='binary_crossentropy',
+                metrics=['accuracy'])
+        
+# Train the model
+history = model.fit(
+    train_generator,
+    steps_per_epoch=len(X_train) // batch_size,
+    epochs=epochs,
+    validation_data=val_generator,
+    validation_steps=len(X_val) // batch_size
+)
+        
+        # Evaluate the model
+        val_loss, val_accuracy = model.evaluate(val_generator)
+        print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+        
+        # Plot training history
+        import matplotlib.pyplot as plt
+        
+        plt.figure(figsize=(12, 4))
+        plt.subplot(1, 2, 1)
+        plt.plot(history.history['accuracy'], label='Training Accuracy')
+        plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+        plt.legend()
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.title('Training and Validation Accuracy')
+        
+        plt.subplot(1, 2, 2)
+        plt.plot(history.history['loss'], label='Training Loss')
+        plt.plot(history.history['val_loss'], label='Validation Loss')
+        plt.legend()
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Training and Validation Loss')
+        
+        plt.show()
+        
+    </xmp>
+    <h2>mitul ex 2 pre-trained model and compare</h2>
+    <xmp>
+        import os
+        import numpy as np
+        import tensorflow as tf
+        from tensorflow.keras.preprocessing.image import ImageDataGenerator
+        from sklearn.model_selection import train_test_split
+        from tensorflow.keras import layers, models
+        from tensorflow.keras.applications import VGG16, ResNet50
+        
+        # Define paths for the two folders
+        horse_dir = 'path/to/your/horses/folder'
+        human_dir = 'path/to/your/humans/folder'
+        
+        # Parameters
+        img_height, img_width = 224, 224  # Required input size for VGG16 and ResNet50
+        batch_size = 32
+        epochs = 5  # You may increase this based on your dataset size
+        
+        # Load images and create arrays
+        def load_images_from_folder(folder, label, img_height, img_width):
+            images = []
+            labels = []
+            for filename in os.listdir(folder):
+                img_path = os.path.join(folder, filename)
+                img = tf.keras.preprocessing.image.load_img(img_path, target_size=(img_height, img_width))
+                img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0  # Normalize to [0, 1]
+                images.append(img_array)
+                labels.append(label)
+            return np.array(images), np.array(labels)
+        
+        # Load horse images (label 0) and human images (label 1)
+        horse_images, horse_labels = load_images_from_folder(horse_dir, 0, img_height, img_width)
+        human_images, human_labels = load_images_from_folder(human_dir, 1, img_height, img_width)
+        
+        # Combine and shuffle data
+        X = np.concatenate([horse_images, human_images], axis=0)
+        y = np.concatenate([horse_labels, human_labels], axis=0)
+        
+        # Split into training and validation sets
+        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        # Data augmentation
+        train_datagen = ImageDataGenerator(
+            rotation_range=20,
+            width_shift_range=0.1,
+            height_shift_range=0.1,
+            shear_range=0.1,
+            zoom_range=0.1,
+            horizontal_flip=True
+        )
+        val_datagen = ImageDataGenerator()
+        
+        # Create data generators
+        train_generator = train_datagen.flow(X_train, y_train, batch_size=batch_size)
+        val_generator = val_datagen.flow(X_val, y_val, batch_size=batch_size)
+        
+        # Function to build a transfer learning model
+        def build_model(base_model):
+            model = models.Sequential([
+                base_model,
+                layers.GlobalAveragePooling2D(),
+                layers.Dense(128, activation='relu'),
+                layers.Dropout(0.5),
+                layers.Dense(1, activation='sigmoid')
+            ])
+            model.compile(optimizer='adam',
+                          loss='binary_crossentropy',
+                          metrics=['accuracy'])
+            return model
+        
+        # Load pre-trained VGG16 model
+        vgg_base = VGG16(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))
+        for layer in vgg_base.layers:
+            layer.trainable = False  # Freeze VGG16 layers
+        
+        # Load pre-trained ResNet50 model
+        resnet_base = ResNet50(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))
+        for layer in resnet_base.layers:
+            layer.trainable = False  # Freeze ResNet50 layers
+        
+        # Build models
+        vgg_model = build_model(vgg_base)
+        resnet_model = build_model(resnet_base)
+        
+        # Train VGG16 model
+        print("Training VGG16 Model:")
+        vgg_history = vgg_model.fit(
+            train_generator,
+            steps_per_epoch=len(X_train) // batch_size,
+            epochs=epochs,
+            validation_data=val_generator,
+            validation_steps=len(X_val) // batch_size
+        )
+        
+        # Train ResNet50 model
+        print("Training ResNet50 Model:")
+        resnet_history = resnet_model.fit(
+            train_generator,
+            steps_per_epoch=len(X_train) // batch_size,
+            epochs=epochs,
+            validation_data=val_generator,
+            validation_steps=len(X_val) // batch_size
+        )
+        
+        # Evaluate the models
+        vgg_val_loss, vgg_val_accuracy = vgg_model.evaluate(val_generator)
+        resnet_val_loss, resnet_val_accuracy = resnet_model.evaluate(val_generator)
+        
+        print(f"VGG16 Validation Accuracy: {vgg_val_accuracy * 100:.2f}%")
+        print(f"ResNet50 Validation Accuracy: {resnet_val_accuracy * 100:.2f}%")
+        
+        # Plot training history
+        import matplotlib.pyplot as plt
+        
+        plt.figure(figsize=(12, 6))
+        
+        # VGG16 Training and Validation Accuracy
+        plt.subplot(1, 2, 1)
+        plt.plot(vgg_history.history['accuracy'], label='VGG16 Training Accuracy')
+        plt.plot(vgg_history.history['val_accuracy'], label='VGG16 Validation Accuracy')
+        plt.legend()
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.title('VGG16 Training and Validation Accuracy')
+        
+        # ResNet50 Training and Validation Accuracy
+        plt.subplot(1, 2, 2)
+        plt.plot(resnet_history.history['accuracy'], label='ResNet50 Training Accuracy')
+        plt.plot(resnet_history.history['val_accuracy'], label='ResNet50 Validation Accuracy')
+        plt.legend()
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.title('ResNet50 Training and Validation Accuracy')
+        
+        plt.show()
         
     </xmp>
 </body>
